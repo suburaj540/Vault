@@ -1,12 +1,15 @@
 package com.shubham.vault
 
 import android.content.ContentValues
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -29,6 +32,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.webkit.WebViewAssetLoader
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -49,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var web: WebView
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private lateinit var filePicker: ActivityResultLauncher<Intent>
+    private lateinit var attachPicker: ActivityResultLauncher<Intent>
 
     /** Set while a system dialog is up, so leaving the activity does not lock mid-task. */
     private var suppressLock = false
@@ -77,6 +82,20 @@ class MainActivity : AppCompatActivity() {
             fileCallback = null
         }
 
+        // The app reads picked files itself and hands the bytes to the page.
+        attachPicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            suppressLock = false
+            val data = result.data
+            if (result.resultCode != RESULT_OK || data == null) {
+                web.evaluateJavascript("window.__filesDone && window.__filesDone(0)", null)
+            } else {
+                val uris = ArrayList<Uri>()
+                data.clipData?.let { clip -> for (i in 0 until clip.itemCount) uris.add(clip.getItemAt(i).uri) }
+                if (uris.isEmpty()) data.data?.let { uris.add(it) }
+                Thread { deliverFiles(uris) }.start()
+            }
+        }
+
         // Serving the page from a real https origin (intercepted locally, no network)
         // is what makes Web Crypto and IndexedDB available inside a WebView.
         val loader = WebViewAssetLoader.Builder()
@@ -90,7 +109,7 @@ class MainActivity : AppCompatActivity() {
             domStorageEnabled = true
             databaseEnabled = true
             allowFileAccess = false
-            allowContentAccess = false
+            allowContentAccess = true
             mediaPlaybackRequiresUserGesture = true
             setSupportZoom(false)
         }
@@ -197,6 +216,25 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        /** Opens the system file picker. Several files can be chosen at once. */
+        @JavascriptInterface
+        fun pickFiles() {
+            runOnUiThread {
+                try {
+                    suppressLock = true
+                    attachPicker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "application/pdf"))
+                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    })
+                } catch (e: Exception) {
+                    suppressLock = false
+                    Toast.makeText(this@MainActivity, "No file picker on this phone", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
         /**
          * Writes one attachment to a private cache file and hands it to whatever
          * app can display it. The copy is deleted as soon as you leave the vault.
@@ -246,6 +284,83 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun unlockBiometric() = runOnUiThread { unwrapPassword() }
+    }
+
+    // =================================================================
+    //  Reading picked files
+    //  Photos are shrunk here rather than in the page, so a 9 MB camera
+    //  shot never has to cross into JavaScript at full size.
+    // =================================================================
+    private fun deliverFiles(uris: List<Uri>) {
+        var added = 0
+        for (uri in uris) {
+            try {
+                val original = displayName(uri)
+                val mime = contentResolver.getType(uri) ?: "application/octet-stream"
+                var name = original
+                var type = mime
+                var bytes: ByteArray
+
+                if (mime.startsWith("image/")) {
+                    val small = shrinkImage(uri)
+                    if (small != null) {
+                        bytes = small
+                        type = "image/jpeg"
+                        name = original.substringBeforeLast('.', original) + ".jpg"
+                    } else bytes = readAll(uri)
+                } else bytes = readAll(uri)
+
+                if (bytes.size > 4_000_000) {
+                    runOnUiThread { Toast.makeText(this, "$original is too large, skipped", Toast.LENGTH_LONG).show() }
+                    continue
+                }
+
+                val o = JSONObject()
+                o.put("name", name)
+                o.put("type", type)
+                o.put("size", bytes.size)
+                o.put("data", Base64.encodeToString(bytes, Base64.NO_WRAP))
+                val js = "window.__filePicked && window.__filePicked(" + JSONObject.quote(o.toString()) + ")"
+                runOnUiThread { web.evaluateJavascript(js, null) }
+                added++
+            } catch (e: Exception) {
+                runOnUiThread { Toast.makeText(this, "One file could not be read", Toast.LENGTH_LONG).show() }
+            }
+        }
+        val n = added
+        runOnUiThread { web.evaluateJavascript("window.__filesDone && window.__filesDone($n)", null) }
+    }
+
+    private fun displayName(uri: Uri): String {
+        try {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                if (c.moveToFirst()) {
+                    val i = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (i >= 0) c.getString(i)?.let { return it }
+                }
+            }
+        } catch (e: Exception) { }
+        return uri.lastPathSegment?.substringAfterLast('/') ?: "file"
+    }
+
+    private fun readAll(uri: Uri): ByteArray =
+        contentResolver.openInputStream(uri).use { it?.readBytes() ?: ByteArray(0) }
+
+    private fun shrinkImage(uri: Uri): ByteArray? {
+        return try {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            contentResolver.openInputStream(uri).use { BitmapFactory.decodeStream(it, null, bounds) }
+            var sample = 1
+            val longest = maxOf(bounds.outWidth, bounds.outHeight)
+            if (longest <= 0) return null
+            while (longest / sample > 2000) sample *= 2
+            val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+            val bmp = contentResolver.openInputStream(uri).use { BitmapFactory.decodeStream(it, null, opts) } ?: return null
+            val out = ByteArrayOutputStream()
+            bmp.compress(Bitmap.CompressFormat.JPEG, 82, out)
+            bmp.recycle()
+            out.toByteArray()
+        } catch (e: Exception) { null }
     }
 
     // =================================================================

@@ -625,6 +625,7 @@ function svg(markup){ const s = el("span"); s.innerHTML = markup; return s.first
 /* Native prompt() and confirm() do nothing inside an Android WebView, so the
    app draws its own. Both return a promise. */
 const blobUrls = [];
+let attachSink = null;   /* where files from the Android picker land */
 function dialog(o){
   return new Promise(resolve => {
     const wrap = el("div", { class:"dlg-wrap" });
@@ -673,7 +674,17 @@ function toast(msg){
    2. CRYPTO
    ===================================================================== */
 const enc = new TextEncoder(), dec = new TextDecoder();
-const b64  = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+/* Converted in blocks. Passing a whole file as function arguments overflows the
+   call stack once attachments get past about 100 KB, which silently broke saves. */
+function b64(buf){
+  const bytes = new Uint8Array(buf);
+  const BLOCK = 0x8000;
+  let out = "";
+  for (let i = 0; i < bytes.length; i += BLOCK){
+    out += String.fromCharCode.apply(null, bytes.subarray(i, i + BLOCK));
+  }
+  return btoa(out);
+}
 const ub64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
 const rand = n => crypto.getRandomValues(new Uint8Array(n));
 
@@ -1074,6 +1085,7 @@ function recRow(rec){
    8. SHEET FRAMEWORK
    ===================================================================== */
 function closeSheet(){
+  attachSink = null;
   while (blobUrls.length) URL.revokeObjectURL(blobUrls.pop());
   $("layer").replaceChildren();
   document.body.style.overflow = "";
@@ -1104,7 +1116,7 @@ document.addEventListener("keydown", e => {
 function openDetail(id){
   const rec = S.vault.items.find(r => r.id === id);
   if (!rec) return;
-  rec.used = nowISO(); persist().catch(() => {});
+  rec.used = nowISO(); persist().catch(e => toast("Could not save: " + e.message));
   const T = TYPES[rec.type];
   const doc = el("div", { class:"doc", style:"--c:var(" + T.color + ")" });
   doc.append(el("div", { class:"strip" }));
@@ -1337,7 +1349,7 @@ function openEditor(id, type){
   };
   drawAtt();
   const fileIn = el("input", { type:"file", accept:"image/*,application/pdf", multiple:"multiple" });
-  fileIn.style.display = "none";
+  fileIn.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none";
   fileIn.addEventListener("change", async () => {
     const chosen = Array.from(fileIn.files || []);
     fileIn.value = "";
@@ -1355,7 +1367,16 @@ function openEditor(id, type){
     toast("Added. Remember to save the record.");
   });
   attBox.append(attList, fileIn);
-  attBox.append(el("button", { class:"btn btn-sm", onclick:() => fileIn.click() }, "Add files"));
+  /* On Android the app itself reads the file. That skips the WebView's file
+     plumbing entirely, which is where picking used to fail silently. */
+  attachSink = a => { rec.att = rec.att || []; rec.att.push(a); drawAtt(); };
+  const nativePick = !!(AND && AND.pickFiles);
+  attBox.append(el("button", { class:"btn btn-sm btn-primary", onclick:() => {
+    attachSink = a => { rec.att = rec.att || []; rec.att.push(a); drawAtt(); };
+    if (nativePick){
+      try { AND.pickFiles(); } catch(e){ toast("Could not open the file picker."); }
+    } else fileIn.click();
+  } }, "Add files"));
   attBox.append(el("p", { class:"hintline", text:"Pick several at once. Photos are shrunk automatically so the vault stays quick. Everything here is encrypted along with the rest of the record." }));
   form.append(attBox);
 
@@ -1669,6 +1690,14 @@ window.vaultBack = function(){
   if ($("layer").firstChild){ closeSheet(); return true; }
   if (S.key){ lock("Locked."); return true; }
   return false;
+};
+window.__filePicked = function(json){
+  if (!attachSink) return;
+  try { attachSink(JSON.parse(json)); } catch(e){ toast("That file could not be read."); }
+};
+window.__filesDone = function(n){
+  toast(n ? (n + (n > 1 ? " files added." : " file added.") + " Save the record to keep them.")
+          : "Nothing was added.");
 };
 window.__bioUnlock  = function(pw){ $("pw0").value = pw; unlock(); };
 window.__bioError   = function(msg){ lockMsg(msg || "Fingerprint unlock was cancelled.", true); };
