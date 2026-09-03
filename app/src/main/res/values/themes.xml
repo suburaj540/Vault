@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.Vault" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/vault_bg</item>
+        <item name="android:statusBarColor">@color/vault_bg</item>
+        <item name="android:navigationBarColor">@color/vault_bg</item>
+    </style>
+</resources>
