@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private lateinit var filePicker: ActivityResultLauncher<Intent>
     private lateinit var attachPicker: ActivityResultLauncher<Intent>
+    private lateinit var viewerLauncher: ActivityResultLauncher<Intent>
 
     /** Set while a system dialog is up, so leaving the activity does not lock mid-task. */
     private var suppressLock = false
@@ -73,6 +74,7 @@ class MainActivity : AppCompatActivity() {
 
         // Block screenshots, screen recording and the recents preview.
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        clearSharedFiles()   // in case the app was killed outright while a file was open elsewhere
 
         filePicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             suppressLock = false
@@ -94,6 +96,14 @@ class MainActivity : AppCompatActivity() {
                 if (uris.isEmpty()) data.data?.let { uris.add(it) }
                 Thread { deliverFiles(uris) }.start()
             }
+        }
+
+        // Fires when the user comes back from viewing a document in another app.
+        // Without this callback, suppressLock had nothing to ever turn it back off,
+        // which silently disabled auto-lock for the rest of the session.
+        viewerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            suppressLock = false
+            clearSharedFiles()
         }
 
         // Serving the page from a real https origin (intercepted locally, no network)
@@ -252,8 +262,8 @@ class MainActivity : AppCompatActivity() {
                         setDataAndType(uri, if (mime.isBlank()) "*/*" else mime)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    suppressLock = true          // coming straight back should not force a re-unlock
-                    startActivity(Intent.createChooser(view, "Open with"))
+                    suppressLock = true          // lifted again the moment you come back, in viewerLauncher
+                    viewerLauncher.launch(Intent.createChooser(view, "Open with"))
                 } catch (e: Exception) {
                     suppressLock = false
                     Toast.makeText(this@MainActivity, "No app on this phone can open that file", Toast.LENGTH_LONG).show()
