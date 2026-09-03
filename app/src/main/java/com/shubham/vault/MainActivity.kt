@@ -26,8 +26,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.webkit.WebViewAssetLoader
 import org.json.JSONObject
+import java.io.File
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -113,7 +115,14 @@ class MainActivity : AppCompatActivity() {
                 fileCallback = callback
                 return try {
                     suppressLock = true
-                    filePicker.launch(params.createIntent())
+                    // Built by hand so that picking several files at once always works.
+                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "application/pdf"))
+                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    }
+                    filePicker.launch(intent)
                     true
                 } catch (e: Exception) {
                     suppressLock = false
@@ -139,7 +148,15 @@ class MainActivity : AppCompatActivity() {
     /** Leaving the app locks the vault, unless a system picker or prompt caused it. */
     override fun onPause() {
         super.onPause()
-        if (!suppressLock) web.evaluateJavascript("window.vaultLock && window.vaultLock()", null)
+        if (!suppressLock) {
+            web.evaluateJavascript("window.vaultLock && window.vaultLock()", null)
+            clearSharedFiles()
+        }
+    }
+
+    /** Removes any decrypted copy handed to a viewer app. */
+    private fun clearSharedFiles() {
+        try { File(cacheDir, "share").listFiles()?.forEach { it.delete() } } catch (e: Exception) { }
     }
 
     override fun onDestroy() {
@@ -177,6 +194,32 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread { Toast.makeText(this@MainActivity, "Saved to Downloads/Vault/$name", Toast.LENGTH_LONG).show() }
             } catch (e: Exception) {
                 runOnUiThread { Toast.makeText(this@MainActivity, "Could not save the file", Toast.LENGTH_LONG).show() }
+            }
+        }
+
+        /**
+         * Writes one attachment to a private cache file and hands it to whatever
+         * app can display it. The copy is deleted as soon as you leave the vault.
+         */
+        @JavascriptInterface
+        fun openFile(name: String, base64: String, mime: String) {
+            runOnUiThread {
+                try {
+                    val dir = File(cacheDir, "share").apply { mkdirs() }
+                    val safe = name.replace(Regex("[^A-Za-z0-9._-]"), "_").take(60)
+                    val out = File(dir, if (safe.isBlank()) "file" else safe)
+                    out.writeBytes(Base64.decode(base64, Base64.DEFAULT))
+                    val uri = FileProvider.getUriForFile(this@MainActivity, "$packageName.files", out)
+                    val view = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, if (mime.isBlank()) "*/*" else mime)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    suppressLock = true          // coming straight back should not force a re-unlock
+                    startActivity(Intent.createChooser(view, "Open with"))
+                } catch (e: Exception) {
+                    suppressLock = false
+                    Toast.makeText(this@MainActivity, "No app on this phone can open that file", Toast.LENGTH_LONG).show()
+                }
             }
         }
 

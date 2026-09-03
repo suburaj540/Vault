@@ -102,9 +102,15 @@ label.fl{display:block;margin-bottom:5px}
   display:flex;align-items:center;gap:10px;
   padding-top:calc(10px + env(safe-area-inset-top));
 }
-.topbar .search{flex:1;position:relative}
+.topbar{flex-direction:column;align-items:stretch;gap:9px}
+.tbrow{display:flex;align-items:center;gap:10px}
+.tbrow .vname{font-family:var(--serif);font-size:19px;letter-spacing:-.01em;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tbrow .dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none}
+.topbar .search{position:relative}
 .topbar .search input{padding-left:34px;background:var(--surface)}
 .topbar .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.5}
+.rail{top:112px}
 .shell{flex:1;display:flex;align-items:flex-start;gap:0;max-width:1180px;width:100%;margin:0 auto}
 .rail{
   width:212px;flex:none;padding:16px 10px 40px;position:sticky;top:59px;
@@ -200,6 +206,28 @@ label.fl{display:block;margin-bottom:5px}
 .attach .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .meta{font-size:12px;color:var(--ink-faint);font-family:var(--mono);padding:10px 15px;border-top:1px solid var(--rule-soft)}
 
+/* ---------- dialog ---------- */
+.dlg-wrap{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:20px;background:rgba(10,12,9,.5)}
+.dlg{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:18px;
+  width:min(400px,100%);box-shadow:var(--shadow);animation:pop .14s ease-out}
+@keyframes pop{from{transform:scale(.97);opacity:.5}to{transform:none;opacity:1}}
+.dlg h4{margin:0 0 6px;font-size:17px;font-weight:600}
+.dlg p{margin:0 0 12px;font-size:13.5px;color:var(--ink-soft);white-space:pre-line}
+.dlg .row2{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* ---------- attachments ---------- */
+.attblock{padding:13px 15px;border-top:1px solid var(--rule-soft)}
+.atts{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;margin-top:9px}
+.att{border:1px solid var(--rule-soft);border-radius:10px;overflow:hidden;background:var(--surface-2)}
+.att .thumb{width:100%;height:96px;object-fit:cover;display:block;background:var(--rule-soft);cursor:pointer}
+.att .docthumb{display:grid;place-items:center;font-family:var(--mono);font-size:12px;
+  letter-spacing:.1em;color:var(--ink-soft)}
+.att .nm2{font-size:11.5px;padding:7px 8px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att .sz{font-family:var(--mono);font-size:10px;color:var(--ink-faint);padding:1px 8px 6px}
+.att .acts2{display:flex;gap:5px;padding:0 8px 8px}
+.att .acts2 .btn{flex:1;padding:4px 0;font-size:12px}
+.viewer{width:100%;border-radius:10px;border:1px solid var(--rule);display:block}
+
 /* ---------- toast ---------- */
 #toast{
   position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%);
@@ -214,7 +242,7 @@ label.fl{display:block;margin-bottom:5px}
 }
 @media (max-width:900px){
   .rail{
-    position:sticky;top:59px;width:100%;display:flex;gap:6px;overflow-x:auto;padding:10px 12px;
+    position:sticky;top:112px;width:100%;display:flex;gap:6px;overflow-x:auto;padding:10px 12px;
     max-height:none;background:var(--paper);border-bottom:1px solid var(--rule-soft);z-index:20;
     scrollbar-width:none
   }
@@ -249,6 +277,10 @@ label.fl{display:block;margin-bottom:5px}
         <input type="password" id="pw2" autocomplete="new-password" spellcheck="false">
       </div>
       <div class="field">
+        <label class="fl eyebrow" for="vaultNameIn">Name this vault</label>
+        <input type="text" id="vaultNameIn" placeholder="Shubham's Vault" spellcheck="false">
+      </div>
+      <div class="field">
         <label class="fl eyebrow" for="hintIn">Reminder (optional, stored unencrypted)</label>
         <input type="text" id="hintIn" placeholder="A nudge only you understand" spellcheck="false">
       </div>
@@ -276,17 +308,21 @@ label.fl{display:block;margin-bottom:5px}
 <!-- ============ APP ============ -->
 <section id="app" class="hidden">
   <div class="topbar">
+    <div class="tbrow">
+      <span class="vname" id="vaultName">Vault</span>
+      <i class="dot"></i>
+      <button class="btn btn-sm" id="settingsBtn" title="Settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+      </button>
+      <button class="btn btn-sm" id="lockBtn" title="Lock now">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <span>Lock</span>
+      </button>
+    </div>
     <div class="search">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
       <input type="search" id="q" placeholder="Search" autocomplete="off" spellcheck="false">
     </div>
-    <button class="btn btn-sm" id="settingsBtn" title="Settings">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
-    </button>
-    <button class="btn btn-sm" id="lockBtn" title="Lock now">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-      <span>Lock</span>
-    </button>
   </div>
 
   <div class="shell">
@@ -586,6 +622,44 @@ const ICON = {
 };
 function svg(markup){ const s = el("span"); s.innerHTML = markup; return s.firstChild; }
 
+/* Native prompt() and confirm() do nothing inside an Android WebView, so the
+   app draws its own. Both return a promise. */
+const blobUrls = [];
+function dialog(o){
+  return new Promise(resolve => {
+    const wrap = el("div", { class:"dlg-wrap" });
+    const box  = el("div", { class:"dlg", role:"dialog", "aria-modal":"true" });
+    box.append(el("h4", { text:o.title }));
+    if (o.message) box.append(el("p", { text:o.message }));
+    let field = null;
+    if (o.input){
+      field = el("input", { type:o.secret ? "password" : "text", placeholder:o.placeholder || "",
+                            spellcheck:"false", autocomplete:"off" });
+      if (o.value) field.value = o.value;
+      if (o.secret) field.style.fontFamily = "var(--mono)";
+      box.append(field);
+    }
+    const finish = v => { document.removeEventListener("keydown", onKey); wrap.remove(); resolve(v); };
+    const cancel = () => finish(o.input ? null : false);
+    box.append(el("div", { class:"row2" }, [
+      el("button", { class:"btn", onclick:cancel }, o.cancelLabel || "Cancel"),
+      el("button", { class:"btn " + (o.danger ? "btn-danger" : "btn-primary"),
+                     onclick:() => finish(o.input ? field.value : true) }, o.okLabel || "OK")
+    ]));
+    const onKey = e => {
+      if (e.key === "Escape"){ e.stopPropagation(); cancel(); }
+      if (e.key === "Enter" && o.input) finish(field.value);
+    };
+    document.addEventListener("keydown", onKey);
+    wrap.addEventListener("click", e => { if (e.target === wrap) cancel(); });
+    wrap.append(box);
+    document.body.append(wrap);
+    if (field) setTimeout(() => field.focus(), 60);
+  });
+}
+const askText    = (title, message, opts) => dialog(Object.assign({ title, message, input:true }, opts || {}));
+const askConfirm = (title, message, opts) => dialog(Object.assign({ title, message }, opts || {}));
+
 let toastTimer = null;
 function toast(msg){
   let t = $("toast");
@@ -741,13 +815,21 @@ async function createVault(){
   const salt = rand(16);
   S.salt = b64(salt); S.iter = KDF_ITER;
   S.key  = await deriveKey(p1, salt, S.iter);
-  S.vault = { version:APP_VERSION, created:nowISO(), items:[], prefs:Object.assign({}, DEFAULT_PREFS) };
+  const vname = $("vaultNameIn").value.trim();
+  S.vault = { version:APP_VERSION, name:vname || "My Vault", created:nowISO(), items:[], prefs:Object.assign({}, DEFAULT_PREFS) };
   const hint = $("hintIn").value.trim();
   if (hint) localStorage.setItem(LS_HINT, hint);
   await persist();
   $("pw1").value = $("pw2").value = "";
   enterApp();
   toast("Vault created. Nothing is stored anywhere but this device.");
+  /* Offer fingerprint straight away, while the password is still to hand. */
+  let bioOk = false; try { bioOk = !!(AND && AND.biometricAvailable()); } catch(e){}
+  if (bioOk){
+    const want = await askConfirm("Use your fingerprint to unlock?",
+      "Your master password still works any time. You can change this later in Settings.", { okLabel:"Turn it on" });
+    if (want){ try { AND.enableBiometric(p1); } catch(e){ toast("This phone refused to store the key."); } }
+  }
 }
 
 async function unlock(){
@@ -792,6 +874,7 @@ function enterApp(){
   $("lock").classList.add("hidden");
   $("app").classList.remove("hidden");
   lockMsg("");
+  $("vaultName").textContent = (S.vault && S.vault.name) || "My Vault";
   buildRail(); render(); resetIdle(); backupNag();
 }
 
@@ -890,7 +973,8 @@ async function checkLinkedFileNewer(localEnv){
     const text = await (await fileHandle.getFile()).text();
     const remote = JSON.parse(text);
     if (remote.updated && localEnv.updated && remote.updated > localEnv.updated){
-      if (confirm("The linked file was changed more recently, probably on another device.\n\nLoad that copy?")){
+      const take = await askConfirm("A newer copy exists", "The linked file was changed more recently, probably on another device.", { okLabel:"Load it" });
+      if (take){
         const key = S.key;                                  // same password, so the same salt must apply
         if (remote.salt !== localEnv.salt) return toast("The linked file uses a different master password. Import it manually.");
         S.vault = await openVault(remote, key);
@@ -989,7 +1073,11 @@ function recRow(rec){
 /* =====================================================================
    8. SHEET FRAMEWORK
    ===================================================================== */
-function closeSheet(){ $("layer").replaceChildren(); document.body.style.overflow = ""; }
+function closeSheet(){
+  while (blobUrls.length) URL.revokeObjectURL(blobUrls.pop());
+  $("layer").replaceChildren();
+  document.body.style.overflow = "";
+}
 function openSheet(title, contentNode, footerNodes, onBack){
   $("layer").replaceChildren();
   document.body.style.overflow = "hidden";
@@ -1066,14 +1154,27 @@ function openDetail(id){
     rec.tags.forEach(t => wrap.append(el("span", { class:"chip", text:t })));
     doc.append(el("div", { class:"row" }, [ el("div", { class:"k", text:"Tags" }), wrap ]));
   }
-  (rec.att || []).forEach((a, i) => {
-    doc.append(el("div", { class:"attach" }, [
-      el("span", { class:"nm", text:a.name }),
-      el("span", { class:"eyebrow", text:Math.round(a.size / 1024) + " KB" }),
-      el("button", { class:"iconbtn", "aria-label":"Open attachment", onclick:() => openAttachment(a) }, svg(ICON.eye)),
-      el("button", { class:"iconbtn", "aria-label":"Download attachment", onclick:() => downloadAttachment(a) }, svg(ICON.down))
-    ]));
-  });
+  if (rec.att && rec.att.length){
+    const grid = el("div", { class:"atts" });
+    rec.att.forEach(a => {
+      const card = el("div", { class:"att" });
+      if (isImage(a)){
+        const url = URL.createObjectURL(blobFor(a));
+        blobUrls.push(url);
+        card.append(el("img", { class:"thumb", src:url, alt:a.name, onclick:() => viewAttachment(a) }));
+      } else {
+        card.append(el("div", { class:"thumb docthumb", text:(a.name.split(".").pop() || "FILE").toUpperCase() }));
+      }
+      card.append(el("div", { class:"nm2", text:a.name }));
+      card.append(el("div", { class:"sz", text:Math.round(a.size / 1024) + " KB" }));
+      card.append(el("div", { class:"acts2" }, [
+        el("button", { class:"btn btn-sm", onclick:() => viewAttachment(a) }, "View"),
+        el("button", { class:"btn btn-sm", onclick:() => downloadAttachment(a) }, "Save")
+      ]));
+      grid.append(card);
+    });
+    doc.append(el("div", { class:"attblock" }, [ el("div", { class:"eyebrow", text:"Files" }), grid ]));
+  }
   doc.append(el("div", { class:"meta", text:"updated " + fmtDate(rec.updated) + "  •  created " + fmtDate(rec.created) }));
 
   openSheet(rec.title || "Record", doc, [
@@ -1088,17 +1189,27 @@ function blobFor(a){
   const bytes = ub64(a.data);
   return new Blob([bytes], { type:a.type || "application/octet-stream" });
 }
-function openAttachment(a){
-  const url = URL.createObjectURL(blobFor(a));
-  const view = el("div", {}, [
-    a.type && a.type.startsWith("image/")
-      ? el("img", { src:url, style:"max-width:100%;border-radius:10px;border:1px solid var(--rule)" })
-      : el("p", { text:"This file type cannot be previewed. Download it instead." })
-  ]);
-  openSheet(a.name, view, [
-    el("button", { class:"btn", style:"flex:1", onclick:() => downloadAttachment(a) }, "Download"),
-    el("button", { class:"btn btn-primary", onclick:() => { URL.revokeObjectURL(url); closeSheet(); } }, "Done")
-  ]);
+const isImage = a => !!(a.type && a.type.startsWith("image/"));
+
+function viewAttachment(a){
+  const body = el("div");
+  if (isImage(a)){
+    const url = URL.createObjectURL(blobFor(a));
+    blobUrls.push(url);
+    body.append(el("img", { class:"viewer", src:url, alt:a.name }));
+    body.append(el("p", { class:"hintline", text:"Pinch to zoom." }));
+  } else {
+    body.append(el("p", { class:"hintline", style:"margin-top:0",
+      text:"A PDF cannot be shown inside the vault itself. Open it in another app, or save it to Downloads." }));
+  }
+  const footer = [];
+  if (AND) footer.push(el("button", { class:"btn btn-primary", style:"flex:1", onclick:() => {
+    try { AND.openFile(a.name, a.data, a.type || "application/octet-stream"); }
+    catch(e){ toast("No app on this phone can open that file."); }
+  } }, "Open in another app"));
+  footer.push(el("button", { class:"btn" + (AND ? "" : " btn-primary"), style:AND ? "" : "flex:1",
+    onclick:() => downloadAttachment(a) }, "Save to Downloads"));
+  openSheet(a.name, body, footer);
 }
 function downloadAttachment(a){
   if (AND){
@@ -1110,8 +1221,9 @@ function downloadAttachment(a){
   document.body.append(link); link.click(); link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
-function deleteRecord(rec){
-  if (!confirm("Delete “" + rec.title + "” permanently?\n\nThis cannot be undone unless you have a backup file.")) return;
+async function deleteRecord(rec){
+  const yes = await askConfirm("Delete " + rec.title + "?", "This cannot be undone unless you have a backup file.", { okLabel:"Delete", danger:true });
+  if (!yes) return;
   S.vault.items = S.vault.items.filter(r => r.id !== rec.id);
   persist(); closeSheet(); buildRail(); render();
   toast("Deleted.");
@@ -1196,26 +1308,55 @@ function openEditor(id, type){
   const attList = el("div");
   const drawAtt = () => {
     attList.replaceChildren();
-    (rec.att || []).forEach((a, i) => attList.append(el("div", { class:"attach", style:"border:1px solid var(--rule-soft);border-radius:8px;margin-bottom:6px" }, [
-      el("span", { class:"nm", text:a.name }),
-      el("span", { class:"eyebrow", text:Math.round(a.size / 1024) + " KB" }),
-      el("button", { class:"iconbtn", "aria-label":"Remove attachment", onclick:() => { rec.att.splice(i,1); drawAtt(); } }, svg(ICON.trash))
-    ])));
+    const list = rec.att || [];
+    if (!list.length){
+      attList.append(el("p", { class:"hintline", style:"margin:0 0 8px", text:"No files yet." }));
+      return;
+    }
+    const grid = el("div", { class:"atts", style:"margin:0 0 10px" });
+    list.forEach((a, i) => {
+      const card = el("div", { class:"att" });
+      if (isImage(a)){
+        const url = URL.createObjectURL(blobFor(a));
+        blobUrls.push(url);
+        card.append(el("img", { class:"thumb", src:url, alt:a.name }));
+      } else {
+        card.append(el("div", { class:"thumb docthumb", text:(a.name.split(".").pop() || "FILE").toUpperCase() }));
+      }
+      card.append(el("div", { class:"nm2", text:a.name }));
+      card.append(el("div", { class:"sz", text:Math.round(a.size / 1024) + " KB" }));
+      card.append(el("div", { class:"acts2" }, [
+        el("button", { class:"btn btn-sm btn-danger", onclick:() => { rec.att.splice(i,1); drawAtt(); } }, "Remove")
+      ]));
+      grid.append(card);
+    });
+    attList.append(grid);
+    const total = list.reduce((n,a) => n + a.size, 0);
+    attList.append(el("p", { class:"hintline", style:"margin:0 0 8px",
+      text: list.length + " file" + (list.length > 1 ? "s" : "") + ", " + Math.round(total/1024) + " KB total" }));
   };
   drawAtt();
   const fileIn = el("input", { type:"file", accept:"image/*,application/pdf", multiple:"multiple" });
-  fileIn.style.cssText = "border:none;padding:0;font-size:13px";
+  fileIn.style.display = "none";
   fileIn.addEventListener("change", async () => {
-    for (const file of fileIn.files){
-      if (file.size > 1500000){ toast(file.name + " is over 1.5 MB. Compress it first."); continue; }
-      const buf = await file.arrayBuffer();
-      rec.att = rec.att || [];
-      rec.att.push({ name:file.name, type:file.type, size:file.size, data:b64(buf) });
+    const chosen = Array.from(fileIn.files || []);
+    fileIn.value = "";
+    if (!chosen.length) return;
+    toast(chosen.length === 1 ? "Adding the file…" : "Adding " + chosen.length + " files…");
+    for (const file of chosen){
+      try {
+        const packed = await packFile(file);
+        if (!packed) continue;
+        rec.att = rec.att || [];
+        rec.att.push(packed);
+      } catch(e){ toast("Could not read " + file.name); }
     }
-    fileIn.value = ""; drawAtt();
+    drawAtt();
+    toast("Added. Remember to save the record.");
   });
   attBox.append(attList, fileIn);
-  attBox.append(el("p", { class:"hintline", text:"Attachments are encrypted with everything else, but they make every save heavier. Keep them under about 8 MB in total." }));
+  attBox.append(el("button", { class:"btn btn-sm", onclick:() => fileIn.click() }, "Add files"));
+  attBox.append(el("p", { class:"hintline", text:"Pick several at once. Photos are shrunk automatically so the vault stays quick. Everything here is encrypted along with the rest of the record." }));
   form.append(attBox);
 
   const save = () => {
@@ -1241,6 +1382,38 @@ function openEditor(id, type){
     el("button", { class:"btn btn-primary", style:"flex:1", onclick:save }, editing ? "Save changes" : "Add record"),
     el("button", { class:"btn", onclick:() => (editing ? openDetail(id) : closeSheet()) }, "Cancel")
   ], () => (editing ? openDetail(id) : closeSheet()));
+}
+
+/* A phone photo is often 4 MB or more. Shrink images to something a document
+   scan actually needs, so the vault stays fast to encrypt and save. */
+async function shrinkImage(file, maxDim, quality){
+  const bmp = await createImageBitmap(file);
+  let w = bmp.width, h = bmp.height;
+  const scale = Math.min(1, maxDim / Math.max(w, h));
+  w = Math.max(1, Math.round(w * scale));
+  h = Math.max(1, Math.round(h * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  canvas.getContext("2d").drawImage(bmp, 0, 0, w, h);
+  bmp.close && bmp.close();
+  return new Promise(res => canvas.toBlob(res, "image/jpeg", quality));
+}
+async function packFile(file){
+  let blob = file, name = file.name, type = file.type || "application/octet-stream";
+  if (type.startsWith("image/")){
+    try {
+      const small = await shrinkImage(file, 2000, 0.82);
+      if (small && small.size < file.size){
+        blob = small; type = "image/jpeg";
+        name = name.replace(/\.[^.]+$/, "") + ".jpg";
+      }
+    } catch(e){ /* keep the original if the browser cannot resize */ }
+  }
+  if (blob.size > 4000000){
+    toast(name + " is still over 4 MB. Skipped.");
+    return null;
+  }
+  return { name, type, size:blob.size, data:b64(await blob.arrayBuffer()) };
 }
 
 /* =====================================================================
@@ -1281,6 +1454,36 @@ function renderSettings(){
     nodes.forEach(n => box.append(n));
   };
 
+  /* phone, first because it is the thing people look for */
+  if (AND){
+    let avail = false; try { avail = AND.biometricAvailable(); } catch(e){}
+    const on = bioReady();
+    section("Fingerprint unlock", [
+      el("p", { class:"hintline", style:"margin-top:0",
+        text: !avail ? "This phone reports no usable fingerprint or face unlock. Set one up in the phone's own Settings first, then come back."
+             : on   ? "On. Your fingerprint opens this vault."
+                    : "Off. You are typing your master password every time." }),
+      avail ? el("div", { style:"display:flex;gap:8px;flex-wrap:wrap" }, [
+        el("button", { class:"btn btn-sm btn-primary", onclick:enableBiometric }, on ? "Register again" : "Turn on fingerprint unlock"),
+        on ? el("button", { class:"btn btn-sm btn-danger", onclick:() => { try { AND.disableBiometric(); } catch(e){} toast("Fingerprint unlock removed."); renderSettings(); } }, "Turn off") : null
+      ]) : null,
+      el("p", { class:"hintline", text:"Your fingerprint does not replace the master password. It unwraps a copy held in this phone's secure hardware, which erases itself the moment the phone's enrolled fingerprints change." })
+    ]);
+  }
+
+  /* name */
+  const nameIn = el("input", { type:"text", value:(S.vault.name || ""), placeholder:"My Vault" });
+  section("Vault name", [
+    el("div", { class:"field" }, nameIn),
+    el("button", { class:"btn btn-sm", onclick:() => {
+      const v = nameIn.value.trim();
+      if (!v) return toast("Give the vault a name.");
+      S.vault.name = v; persist();
+      $("vaultName").textContent = v;
+      toast("Renamed.");
+    } }, "Save name")
+  ]);
+
   /* backup */
   const last = localStorage.getItem(LS_EXPORT);
   section("Backups", [
@@ -1317,21 +1520,6 @@ function renderSettings(){
     el("label", { class:"field", style:"display:flex;align-items:center" }, [ hideChk, el("span", { text:"Lock when the app goes to the background" }) ]),
     el("p", { class:"hintline", text:"Shortcut: Ctrl or Cmd, Shift, L locks instantly." })
   ]);
-
-  /* phone */
-  if (AND){
-    let avail = false; try { avail = AND.biometricAvailable(); } catch(e){}
-    section("This phone", [
-      avail
-        ? el("div", { style:"display:flex;gap:8px;flex-wrap:wrap" }, [
-            el("button", { class:"btn btn-sm", onclick:enableBiometric }, bioReady() ? "Re-register fingerprint" : "Turn on fingerprint unlock"),
-            bioReady() ? el("button", { class:"btn btn-sm btn-danger", onclick:() => { try { AND.disableBiometric(); } catch(e){} toast("Fingerprint unlock removed."); renderSettings(); } }, "Remove") : null
-          ])
-        : el("p", { class:"hintline", style:"margin-top:0", text:"No fingerprint or face unlock is set up on this phone." }),
-      el("p", { class:"hintline", text:"Your fingerprint does not replace the master password. It unwraps a copy of it held in this phone's secure hardware, which erases itself if you add a new fingerprint to the phone." }),
-      el("p", { class:"hintline", text:"Backups are written to your Downloads folder. Screenshots and preview thumbnails are blocked while the app is open." })
-    ]);
-  }
 
   /* master password */
   section("Master password", [
@@ -1388,8 +1576,9 @@ async function exportEncrypted(){
   backupNag();
   toast("Encrypted backup downloaded.");
 }
-function exportPlain(){
-  if (!confirm("This writes every password, card number and ID in plain readable text.\n\nContinue?")) return;
+async function exportPlain(){
+  const yes = await askConfirm("Export a readable copy?", "This writes every password, card number and ID in plain readable text.", { okLabel:"Export anyway", danger:true });
+  if (!yes) return;
   download("vault-READABLE-" + new Date().toISOString().slice(0,10) + ".json", JSON.stringify(S.vault, null, 2));
   toast("Readable copy downloaded. Delete it as soon as you are done.");
 }
@@ -1401,7 +1590,7 @@ function importFlow(fromSettings){
     try { envelope = JSON.parse(await file.text()); }
     catch(e){ return toast("That file is not a vault backup."); }
     if (!envelope.ct || !envelope.salt || !envelope.iv) return toast("That file is missing its encrypted contents.");
-    const pw = prompt("Master password for this backup:");
+    const pw = await askText("Restore backup", "Master password for this backup file.", { secret:true, okLabel:"Restore" });
     if (!pw) return;
     try{
       const key = await deriveKey(pw, ub64(envelope.salt), envelope.iter || KDF_ITER);
@@ -1433,12 +1622,15 @@ function mergeVaults(local, incoming){
   return { vault: Object.assign({}, local, { items:Object.values(byId) }), added, updated };
 }
 async function changeMaster(){
-  const cur = prompt("Current master password:"); if (!cur) return;
+  const cur = await askText("Change master password", "Enter your current master password.", { secret:true });
+  if (!cur) return;
   try { await openVault(await Store.getEnvelope(), await deriveKey(cur, ub64(S.salt), S.iter)); }
   catch(e){ return toast("That is not the current password."); }
-  const nw = prompt("New master password (10 characters minimum):"); if (!nw) return;
+  const nw = await askText("New master password", "At least 10 characters. A phrase of four words works well.", { secret:true });
+  if (!nw) return;
   if (nw.length < 10) return toast("Too short. Use a longer phrase.");
-  if (prompt("Type the new password again:") !== nw) return toast("The two entries did not match.");
+  const again = await askText("Confirm it", "Type the new password once more.", { secret:true });
+  if (again !== nw) return toast("The two entries did not match.");
   const salt = rand(16);
   S.salt = b64(salt); S.iter = KDF_ITER;
   S.key = await deriveKey(nw, salt, S.iter);
@@ -1447,8 +1639,10 @@ async function changeMaster(){
   renderSettings();
 }
 async function wipeAll(){
-  if (!confirm("Erase the vault stored on this device?\n\nBackup files elsewhere survive. Anything only stored here is gone forever.")) return;
-  if (prompt("Type ERASE to confirm:") !== "ERASE") return toast("Cancelled.");
+  const yes = await askConfirm("Erase this device's vault?", "Backup files elsewhere survive. Anything only stored here is gone forever.", { okLabel:"Continue", danger:true });
+  if (!yes) return;
+  const typed = await askText("Confirm erase", "Type ERASE to confirm.", { placeholder:"ERASE", okLabel:"Erase", danger:true });
+  if (typed !== "ERASE") return toast("Cancelled.");
   await Store.wipe();
   S.key = null; S.vault = null;
   closeSheet(); location.reload();
@@ -1484,7 +1678,7 @@ window.__bioEnabled = function(ok){
 };
 function bioReady(){ try { return !!(AND && AND.biometricEnrolled()); } catch(e){ return false; } }
 async function enableBiometric(){
-  const pw = prompt("Confirm your master password to turn on fingerprint unlock:");
+  const pw = await askText("Turn on fingerprint unlock", "Confirm your master password. It gets sealed inside this phone's secure hardware.", { secret:true, okLabel:"Continue" });
   if (!pw) return;
   try { await openVault(await Store.getEnvelope(), await deriveKey(pw, ub64(S.salt), S.iter)); }
   catch(e){ return toast("That is not your master password."); }
@@ -1534,8 +1728,10 @@ $("pw1").addEventListener("input", () => {
 });
 $("importAtLock").addEventListener("click", () => importFlow(false));
 $("resetAtLock").addEventListener("click", async () => {
-  if (!confirm("Forgotten the password?\n\nThere is no way to recover this vault. You can only erase it and start again.")) return;
-  if (prompt("Type ERASE to wipe the vault on this device:") !== "ERASE") return;
+  const yes = await askConfirm("Forgotten the password?", "There is no way to recover this vault. You can only erase it and start again.", { okLabel:"Continue", danger:true });
+  if (!yes) return;
+  const typed = await askText("Confirm erase", "Type ERASE to wipe the vault on this device.", { placeholder:"ERASE", okLabel:"Erase", danger:true });
+  if (typed !== "ERASE") return;
   await Store.wipe(); location.reload();
 });
 $("lockBtn").addEventListener("click", () => lock("Locked."));

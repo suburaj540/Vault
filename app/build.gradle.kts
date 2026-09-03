@@ -11,8 +11,8 @@ android {
         applicationId = "com.shubham.vault"
         minSdk = 29                 // Android 10. Keeps file saving permission-free.
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
     }
 
     buildTypes {
@@ -29,6 +29,7 @@ android {
 
 dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.webkit:webkit:1.11.0")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.activity:activity-ktx:1.9.0")
